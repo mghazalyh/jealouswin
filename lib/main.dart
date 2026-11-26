@@ -110,7 +110,7 @@ class _LiveTvState extends State<LiveTv> {
       final rows=await c.catalogue();
       if(_disposed||c!=_client)return;
       _change((){_channels=rows;_lastRefresh=DateTime.now();if(!silent)_error='';});
-      if(_current!=null&&!_current!.health.eligible(DateTime.now())){
+      if(_currentId.isNotEmpty&&(_current==null||!_current!.health.eligible(DateTime.now()))){
         await _stop();
         _change(()=>_error='Current channel is now excluded by server policy.');
       }
@@ -137,7 +137,7 @@ class _LiveTvState extends State<LiveTv> {
       _player.load(session.url);_player.mute(_muted);_player.brightness(_brightness);
       _change((){
         if(!fromHistory&&previous.isNotEmpty&&previous!=channel.id){_history.add(previous);if(_history.length>100)_history.removeAt(0);}
-        _currentId=channel.id;_status='Buffering';_remaining=_dwell;
+        _currentId=channel.id;_rotation.attempted.add(channel.id);_status='Buffering';_remaining=_dwell;
         _lastPosition=0;_lastFrames=0;_stalled=0;_manualPause=false;
       });
     }catch(e){
@@ -230,7 +230,7 @@ class _LiveTvState extends State<LiveTv> {
         OutlinedButton(onPressed:_busy||_refreshing?null:()=>_connect(Profile.malay),child:const Text('Connect Malay')),
       ]),
       const Text('Credentials are held in memory only. Server addresses are saved locally.',style:TextStyle(fontSize:12,color:Colors.grey))
-    ]))));
+    ])));
   Widget _playerPanel()=>Card(color:const Color(0xff090b10),clipBehavior:Clip.antiAlias,
     child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
       Padding(padding:const EdgeInsets.all(12),child:Row(children:[
