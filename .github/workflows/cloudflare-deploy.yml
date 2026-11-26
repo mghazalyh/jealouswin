@@ -101,6 +101,9 @@ jobs:
           test -s build/web/player.js
           node --check build/web/player.js
           node --check build/web/rtc.js
+          mkdir -p build/web/assets/jealouswin
+          cp build/web/rtc.js build/web/assets/jealouswin/rtc.js
+          node scripts/test-rtc.mjs
           node scripts/test-player-transport.mjs
       - name: Check deployment credentials
         id: credentials

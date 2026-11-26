@@ -105,7 +105,13 @@
           await pc.setLocalDescription(await pc.createOffer());
           await waitIce(pc);
           // Retain only UDP host candidates. No public STUN/TURN services.
-          offer=pc.localDescription.sdp.split(/\r?\n/).filter(l=>!l.startsWith('a=candidate:')||/ udp .* typ host(?: |$)/i.test(l)).join('\r\n');
+          const prefix=host.split('.').slice(0,3).join('.')+'.';
+          offer=pc.localDescription.sdp.split(/\r?\n/).filter(line=>{
+            if(!line.startsWith('a=candidate:'))return true;
+            const parts=line.split(/\s+/),address=parts[4]||'';
+            return parts[2]?.toLowerCase()==='udp'&&parts[6]==='typ'&&parts[7]==='host'&&
+              (address.startsWith(prefix)&&/^\d+\.\d+\.\d+\.\d+$/.test(address)||/^[a-f0-9-]{36}\.local$/i.test(address));
+          }).join('\r\n');
           send();
         }catch(_){fail('rtc-pairing-failed');}
       })();
