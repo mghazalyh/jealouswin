@@ -1,0 +1,5 @@
+{
+  "$schema": ".github/cloudflare/node_modules/wrangler/config-schema.json",
+  "name": "jealouswin",
+  "pages_build_output_dir": "./build/web"
+}

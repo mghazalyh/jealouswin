@@ -2,7 +2,7 @@
 
 A responsive Flutter web starter with an interactive session-only checklist,
 progress tracking, and light/dark themes. No backend, accounts, or external API
-keys are required. Cloudflare publishing remains pending configuration.
+keys are required. The starter is live at https://jealouswin.pages.dev/.
 
 ## Run locally
 
@@ -46,19 +46,28 @@ does not prove deployment. Integration tests should grow with the app's behavior
 Production runs are serialized and use a GitHub-hosted runner with read-only
 repository permissions. No self-hosted runner is required.
 
-Cloudflare setup is **pending**:
+## Cloudflare project
 
-1. Verify the intended Cloudflare account and its free-tier status.
-2. Create or verify an appropriate Pages Direct Upload project named `jealouswin`,
-   production branch `main`. Change `CLOUDFLARE_PROJECT` in the workflow if the
-   available project name differs. Existing unrelated projects must not be reused.
-3. Create a dedicated token named `github-actions-cloudflare-deploy` with only
+The Pages Direct Upload project `jealouswin` exists, with production branch
+`main` and the free Cloudflare domain https://jealouswin.pages.dev/.
+The initial production deployment was uploaded and its HTTPS assets verified.
+No custom domain or paid service was enabled.
+
+The account ID Actions secret is configured. Automatic publishing still requires
+the dedicated `CLOUDFLARE_API_TOKEN` secret. The local Wrangler OAuth login is
+kept in encrypted storage backed by Windows Credential Manager; it is not used
+as a substitute for a permanent CI deployment token.
+
+Remaining credential setup:
+
+1. Create a dedicated token named `github-actions-cloudflare-deploy` with only
    **Account / Cloudflare Pages / Edit**, scoped to the selected account.
    Do not add DNS permissions, Workers administration, or a global API key.
-4. Set repository Actions secrets `CLOUDFLARE_API_TOKEN` and
-   `CLOUDFLARE_ACCOUNT_ID`. Never commit or print their values.
-5. Run the workflow, monitor the deployment step, and verify the returned HTTPS URL
-   and application behavior. No public deployment URL is confirmed yet.
+2. Set repository Actions secret `CLOUDFLARE_API_TOKEN`.
+   Never commit or print its value.
+3. Run the workflow. After uploading, it verifies that Cloudflare's production
+   deployment matches the workflow commit and checks the production and preview
+   HTTPS assets. It records the verified URLs in the run summary.
 
 Use Cloudflare's provided domain. Do not enable paid services or make unrelated
 DNS changes. Recheck current Pages and GitHub Actions free-tier limits before

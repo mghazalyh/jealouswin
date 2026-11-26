@@ -115,6 +115,12 @@ jobs:
         run: |
           set -euo pipefail
           .github/cloudflare/node_modules/.bin/wrangler pages deploy build/web --project-name="$CLOUDFLARE_PROJECT" --branch=main --commit-hash="$GITHUB_SHA" --commit-dirty=false
+      - name: Verify production deployment and HTTPS assets
+        if: steps.credentials.outputs.configured == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/verify-deployment.mjs
       - name: Report failure
         if: failure()
         run: echo '::error::Pipeline failed. Inspect the first failed step. A successful source check alone does not mean the app was deployed.'
