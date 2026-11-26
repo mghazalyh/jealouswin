@@ -1,4 +1,5 @@
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 
 const { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token,
   CLOUDFLARE_PROJECT: project, GITHUB_SHA: commit, GITHUB_STEP_SUMMARY: summary } = process.env;
@@ -33,14 +34,18 @@ if (!subdomain?.endsWith('.pages.dev') ||
   throw new Error('Cloudflare returned an unexpected deployment domain.');
 }
 const production = `https://${subdomain}`;
+const digest = data => createHash('sha256').update(data).digest('hex');
 for (const base of [preview.origin, production]) {
-  for (const asset of ['/', '/flutter_bootstrap.js', '/main.dart.js', '/manifest.json', '/player.js', '/assets/jealouswin/rtc.js', '/hls.min.js']) {
-    const response = await fetch(`${base}${asset}`, {
+  for (const asset of ['/', '/flutter_bootstrap.js', '/main.dart.js', '/manifest.json', '/player.js', '/assets/jealouswin/rtc.js', '/hls.min.js', '/flutter_service_worker.js']) {
+    const response = await fetch(`${base}${asset}?release=${commit}`, {
       signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) throw new Error(`HTTPS check failed for ${base}${asset}: ${response.status}`);
     const bytes = await response.arrayBuffer();
     if (!bytes.byteLength) throw new Error(`Empty deployment asset: ${asset}`);
+    const local=readFileSync('build/web'+(asset==='/'?'/index.html':asset));
+    if(digest(Buffer.from(bytes))!==digest(local))throw new Error(`Stale or mismatched deployment asset: ${base}${asset}`);
+    if(!/no-store/i.test(response.headers.get('cache-control')||''))throw new Error(`Missing no-store policy for ${base}${asset}`);
     console.log(`Verified ${base}${asset}: HTTP ${response.status}`);
   }
 }

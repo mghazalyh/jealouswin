@@ -83,7 +83,7 @@ jobs:
       - name: Build production web assets
         run: |
           set -euo pipefail
-          flutter build web --release --no-pub
+          flutter build web --release --no-pub --pwa-strategy=none --dart-define=JEALOUSWIN_RELEASE="${GITHUB_SHA:0:12}"
           test -s build/web/index.html
       - name: Bundle verified HLS.js
         shell: bash
@@ -105,6 +105,7 @@ jobs:
           cp build/web/rtc.js build/web/assets/jealouswin/rtc.js
           node scripts/test-rtc.mjs
           node scripts/test-player-transport.mjs
+          node scripts/finalize-web-release.mjs
       - name: Check deployment credentials
         id: credentials
         env:

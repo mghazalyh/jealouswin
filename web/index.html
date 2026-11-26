@@ -39,6 +39,40 @@
   <script src="hls.min.js"></script>
   <script src="assets/jealouswin/rtc.js"></script>
   <script src="player.js"></script>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Retire only the legacy Flutter offline worker and its named caches.
+    // A controlled document needs one navigation before the worker releases it.
+    (async () => {
+      const release = '__JEALOUSWIN_RELEASE__';
+      try {
+        if ('serviceWorker' in navigator) {
+          const worker = navigator.serviceWorker.controller;
+          const legacy = registration => [registration.active, registration.waiting, registration.installing]
+            .some(w => w && new URL(w.scriptURL).pathname === '/flutter_service_worker.js');
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          const owned = registrations.filter(legacy);
+          await Promise.all(owned.map(r => r.unregister()));
+          if ('caches' in window) {
+            const names = await caches.keys();
+            await Promise.all(names.filter(n => ['flutter-app-cache','flutter-temp-cache','flutter-app-manifest'].includes(n)).map(n => caches.delete(n)));
+          }
+          if (worker && new URL(worker.scriptURL).pathname === '/flutter_service_worker.js' &&
+              sessionStorage.getItem('jw-cache-retired') !== release) {
+            sessionStorage.setItem('jw-cache-retired', release);
+            const url = new URL(location.href);
+            url.searchParams.set('release', release);
+            location.replace(url.href);
+            return;
+          }
+        }
+      } catch (_) {
+        // Private browsing or storage restrictions must not prevent startup.
+      }
+      const script = document.createElement('script');
+      script.src = 'flutter_bootstrap.js?release=' + encodeURIComponent(release);
+      script.async = true;
+      document.body.appendChild(script);
+    })();
+  </script>
 </body>
 </html>

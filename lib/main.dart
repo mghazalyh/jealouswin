@@ -218,6 +218,8 @@ class _LiveTvState extends State<LiveTv> {
     crossAxisAlignment:CrossAxisAlignment.start,children:[
       const Text('Connect to your LAN gateway',style:TextStyle(fontSize:19,fontWeight:FontWeight.bold)),
       const SizedBox(height:8),
+      const Text('WebRTC · build '+String.fromEnvironment('JEALOUSWIN_RELEASE',defaultValue:'development'),style:TextStyle(fontSize:12,color:Colors.grey)),
+      const SizedBox(height:8),
       const Text('Use the same Jealousfin login. On the public website, Connect opens a LAN pairing tab: approve the WebRTC connection and return here. Video stays on your LAN.'),
       const SizedBox(height:12),
       TextField(controller:_english,decoration:const InputDecoration(labelText:'English gateway URL',hintText:'http://192.168.x.x:18796'),keyboardType:TextInputType.url),
