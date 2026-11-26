@@ -1,50 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jealouswin/main.dart';
+import 'package:jealouswin/domain.dart';
 
-void main() {
-  testWidgets('checklist supports completion, adding, and theme changes', (
-    tester,
-  ) async {
+void main(){
+  testWidgets('LAN connection and live TV controls are present', (tester) async {
     await tester.pumpWidget(const JealouswinApp());
-    expect(find.text('0 of 3 complete'), findsOneWidget);
-    await tester.ensureVisible(find.byType(Checkbox).first);
-    await tester.tap(find.byType(Checkbox).first);
-    await tester.pumpAndSettle();
-    expect(find.text('1 of 3 complete'), findsOneWidget);
-
-    await tester.ensureVisible(find.byType(TextField));
-    await tester.enterText(find.byType(TextField), 'Build my first feature');
-    await tester.tap(find.byTooltip('Add step'));
-    await tester.pumpAndSettle();
-    expect(find.text('Build my first feature'), findsOneWidget);
-    expect(find.text('1 of 4 complete'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Add step'));
-    await tester.pumpAndSettle();
-    expect(find.text('1 of 4 complete'), findsOneWidget);
-
-    await tester.ensureVisible(find.byTooltip('Use dark theme'));
-    await tester.tap(find.byTooltip('Use dark theme'));
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Use light theme'), findsOneWidget);
-    expect(find.text('1 of 4 complete'), findsOneWidget);
+    expect(find.text('Connect to your LAN gateway'),findsOneWidget);
+    expect(find.text('Connect English'),findsOneWidget);
+    expect(find.text('Connect Malay'),findsOneWidget);
+    await tester.tap(find.text('Connect English'));
+    await tester.pump();
+    expect(find.text('Enter the server address and username.'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+    await tester.pumpWidget(const SizedBox());
   });
-
-  testWidgets('fits a narrow mobile viewport without layout errors', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(360, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const JealouswinApp());
-    expect(tester.takeException(), isNull);
-    await tester.ensureVisible(find.byType(TextField));
-    await tester.enterText(find.byType(TextField), 'A mobile goal');
-    await tester.tap(find.byTooltip('Add step'));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    expect(find.text('A mobile goal'), findsOneWidget);
+  test('gateway policy must be complete and excluded channels stay excluded',(){
+    final now=DateTime.now();
+    final result=decodeCatalogue({
+      'Items':[{'Id':'a','Name':'One','CurrentProgram':{'Name':'Show'},'UserData':{'IsFavorite':true}},
+        {'Id':'b','Name':'Two'}],
+      'JealousfinPolicy':{'revision':'sqlite-policy-v2','channels':{
+        'a':{'banned':false,'hiatusUntil':0,'successes':2},
+        'b':{'banned':false,'hiatusUntil':now.millisecondsSinceEpoch/1000+86400}
+      }}
+    });
+    expect(result.first.favorite,isTrue);
+    expect(result.first.programme,'Show');
+    expect(result.last.matches(ChannelFilter.hiatus,now),isTrue);
+    expect(result.last.matches(ChannelFilter.all,now),isFalse);
+    expect(()=>decodeCatalogue({'Items':[]}),throwsFormatException);
+  });
+  test('rotation exhausts eligible IDs and rejects cross-origin media',(){
+    final r=Rotation();
+    final channels=[const Channel(id:'a',name:'A'),const Channel(id:'b',name:'B')];
+    expect(r.next(channels),'a');
+    expect(r.next(channels,current:'a'),'b');
+    expect(r.remaining(channels),0);
+    expect(r.next(channels,current:'b'),'a');
+    expect(r.cycle,2);
+    final server=ServerAddress('http://192.168.1.2:18796');
+    expect(server.endpoint('/media/token/id.m3u8').host,'192.168.1.2');
+    expect(()=>server.endpoint('https://example.com/media'),throwsFormatException);
+    expect(()=>ServerAddress('http://example.com'),throwsFormatException);
   });
 }

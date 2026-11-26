@@ -85,6 +85,21 @@ jobs:
           set -euo pipefail
           flutter build web --release --no-pub
           test -s build/web/index.html
+      - name: Bundle verified HLS.js
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/hls-release.zip"
+          curl --fail --silent --show-error --location --retry 2 https://github.com/video-dev/hls.js/releases/download/v1.7.4/release.zip -o "$archive"
+          echo "933978ce8ec55b80216c2447b22d5c22c388a086612b88ee8382b3f70bd80165  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/hls-release"
+          unzip -q "$archive" -d "$RUNNER_TEMP/hls-release"
+          mapfile -t candidates < <(find "$RUNNER_TEMP/hls-release" -type f -name hls.min.js)
+          test "${#candidates[@]}" -eq 1
+          cp "${candidates[0]}" build/web/hls.min.js
+          test -s build/web/hls.min.js
+          test -s build/web/player.js
+          node --check build/web/player.js
       - name: Check deployment credentials
         id: credentials
         env:

@@ -34,7 +34,7 @@ if (!subdomain?.endsWith('.pages.dev') ||
 }
 const production = `https://${subdomain}`;
 for (const base of [preview.origin, production]) {
-  for (const asset of ['/', '/flutter_bootstrap.js', '/main.dart.js', '/manifest.json']) {
+  for (const asset of ['/', '/flutter_bootstrap.js', '/main.dart.js', '/manifest.json', '/player.js', '/hls.min.js']) {
     const response = await fetch(`${base}${asset}`, {
       signal: AbortSignal.timeout(30_000),
     });
