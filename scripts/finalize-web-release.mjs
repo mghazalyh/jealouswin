@@ -15,6 +15,21 @@ for(const asset of ['hls.min.js','assets/jealouswin/rtc.js','player.js']){
   index=index.replace(marker,'src="'+asset+'?release='+release+'"');
 }
 write('index.html',index);
+let demo=read('rtc-test.html');
+assert.ok(demo.includes('__DEMO_BUILD__'));
+demo=demo.replace('__DEMO_BUILD__',release.slice(0,12));
+for(const asset of ['/hls.min.js','/assets/jealouswin/rtc-test.js','/player.js','/rtc-test-ui.js']){
+  const marker='src="'+asset+'"';
+  assert.ok(demo.includes(marker),'missing demo script '+asset);
+  demo=demo.replace(marker,'src="'+asset+'?release='+release+'"');
+}
+write('rtc-test.html',demo);
+let rtc=read('rtc.js');
+assert.equal(rtc.split("'18796','18797'").length,2);
+assert.equal(rtc.split("':18800'").length,2);
+rtc=rtc.replace("'18796','18797'","'18802'").replace("':18800'","':18801'").replace("'jealouswin-pair-'","'jealouswin-test-pair-'");
+write('assets/jealouswin/rtc-test.js',rtc);
+
 let bootstrap=read('flutter_bootstrap.js');
 assert.match(bootstrap,/"mainJsPath"\s*:\s*"main\.dart\.js"/,'Flutter entrypoint config missing');
 bootstrap=bootstrap.replace(/("mainJsPath"\s*:\s*")main\.dart\.js"/,'$1main.dart.js?release='+release+'"');

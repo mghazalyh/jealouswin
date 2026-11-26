@@ -36,7 +36,7 @@ if (!subdomain?.endsWith('.pages.dev') ||
 const production = `https://${subdomain}`;
 const digest = data => createHash('sha256').update(data).digest('hex');
 for (const base of [preview.origin, production]) {
-  for (const asset of ['/', '/flutter_bootstrap.js', '/main.dart.js', '/manifest.json', '/player.js', '/assets/jealouswin/rtc.js', '/hls.min.js', '/flutter_service_worker.js']) {
+  for (const asset of ['/', '/flutter_bootstrap.js', '/main.dart.js', '/manifest.json', '/player.js', '/assets/jealouswin/rtc.js', '/hls.min.js', '/flutter_service_worker.js', '/rtc-test.html', '/rtc-test-ui.js', '/assets/jealouswin/rtc-test.js']) {
     const response = await fetch(`${base}${asset}?release=${commit}`, {
       signal: AbortSignal.timeout(30_000),
     });
