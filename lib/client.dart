@@ -48,7 +48,10 @@ class JellyfinClient {
         throw const ServerFault('Channel excluded by gateway policy.',status:409,excluded:true);
       }
       if (r.status == 401 || r.status == 403) {
-        throw ServerFault('Authentication or access denied.',status:r.status);
+        final message=path=='Users/AuthenticateByName'&&r.status==401
+          ?'Login rejected (HTTP 401). Check username and password.'
+          :r.status==403?'Gateway access denied (HTTP 403).':'Authentication required (HTTP 401).';
+        throw ServerFault(message,status:r.status);
       }
       if (r.status == 503 && data['JealousfinPolicyError'] == 'unavailable') {
         throw const ServerFault('Gateway policy unavailable. Try again.',status:503);
@@ -59,6 +62,13 @@ class JellyfinClient {
   }
   Future<void> connect(String name, String password) async {
     _token = ''; userId = '';
+    // A credential-free request distinguishes browser reachability from login.
+    final probe=await transport.request(address.endpoint('System/Info/Public'),'GET',{'Accept':'application/json'},null);
+    if(probe.status!=200)throw ServerFault('Gateway reachability returned HTTP ${probe.status}.',status:probe.status);
+    Json info;
+    try {info=object(jsonDecode(probe.body));}
+    on FormatException {throw const ServerFault('Invalid gateway discovery response.');}
+    if(info['Id'] is! String || info['ServerName'] is! String)throw const ServerFault('Invalid gateway discovery response.');
     final r = await _request('Users/AuthenticateByName',method:'POST',
       body:{'Username':name,'Pw':password});
     final t = r['AccessToken'], user = r['User'];

@@ -2,8 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jealouswin/main.dart';
 import 'package:jealouswin/domain.dart';
+import 'package:jealouswin/client.dart';
+
+class ProbeTransport implements LanTransport {
+  final paths=<String>[];
+  final HttpResult probe;
+  final HttpResult login;
+  ProbeTransport(this.probe,this.login);
+  @override
+  Future<HttpResult> request(Uri uri,String method,Map<String,String> headers,String? body) async {
+    paths.add(uri.path);
+    if(uri.path=='/System/Info/Public'){
+      expect(method,'GET');
+      expect(body,isNull);
+      expect(headers.containsKey('X-Emby-Token'),isFalse);
+      return probe;
+    }
+    return login;
+  }
+}
 
 void main(){
+  test('gateway discovery precedes authentication and failure sends no credentials',() async {
+    final t=ProbeTransport(const HttpResult(503,'{}'),const HttpResult(200,'{}'));
+    final c=JellyfinClient(ServerAddress('http://192.168.1.2:18796'),t);
+    await expectLater(c.connect('fixture','fixture'),throwsA(isA<ServerFault>().having((e)=>e.status,'status',503)));
+    expect(t.paths,['/System/Info/Public']);
+  });
+  test('successful discovery distinguishes rejected login',() async {
+    final t=ProbeTransport(const HttpResult(200,'{"Id":"fixture","ServerName":"Gateway"}'),const HttpResult(401,'{}'));
+    final c=JellyfinClient(ServerAddress('http://192.168.1.2:18796'),t);
+    await expectLater(c.connect('fixture','fixture'),throwsA(isA<ServerFault>().having((e)=>e.message,'message',contains('Login rejected'))));
+    expect(t.paths,['/System/Info/Public','/Users/AuthenticateByName']);
+  });
   testWidgets('LAN connection and live TV controls are present', (tester) async {
     await tester.pumpWidget(const JealouswinApp());
     expect(find.text('Connect to your LAN gateway'),findsOneWidget);

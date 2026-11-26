@@ -100,6 +100,7 @@ jobs:
           test -s build/web/hls.min.js
           test -s build/web/player.js
           node --check build/web/player.js
+          node scripts/test-player-transport.mjs
       - name: Check deployment credentials
         id: credentials
         env:

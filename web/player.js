@@ -5,14 +5,41 @@
     if (!states.has(video)) states.set(video, {generation:0,hls:null,error:'',frames:0,frameHandle:null});
     return states.get(video);
   };
+  // Opt in only for known local HTTP destinations, never public hosts.
+  const localSpace = url => {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' || location.protocol !== 'https:') return null;
+    const host = u.hostname.toLowerCase();
+    if (host === 'localhost' || host.endsWith('.localhost') || host === '[::1]' || /^127\./.test(host)) return 'loopback';
+    const octets = host.split('.').map(Number);
+    if (host.endsWith('.local') || (octets.length === 4 && octets.every(n => Number.isInteger(n) && n >= 0 && n <= 255) &&
+      (octets[0] === 10 || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+       (octets[0] === 192 && octets[1] === 168) || (octets[0] === 169 && octets[1] === 254)))) return 'local';
+    return null;
+  };
+  const localRequest = (url, options) => {
+    const space = localSpace(url);
+    if (space) {
+      // Older implementations may reject the newer enum. Fall back before
+      // sending anything, so authentication is never retried automatically.
+      for (const candidate of [space, 'private']) {
+        try { return new Request(url, {...options, targetAddressSpace:candidate}); }
+        catch (e) { if (!(e instanceof TypeError)) throw e; }
+      }
+    }
+    return new Request(url, options);
+  };
   window.jealouswinRequest = async (url,method,headers,body) => {
     const c = new AbortController(), timer=setTimeout(()=>c.abort(),25000);
     try {
-      const r=await fetch(url,{method,headers:JSON.parse(headers),body:body??undefined,
-        credentials:'omit',redirect:'error',cache:'no-store',referrerPolicy:'no-referrer',signal:c.signal});
+      const r=await fetch(localRequest(url,{method,headers:JSON.parse(headers),body:body??undefined,
+        credentials:'omit',redirect:'error',cache:'no-store',referrerPolicy:'no-referrer',signal:c.signal}));
       const text=await r.text();
       if(text.length>4*1024*1024) throw new Error('Response too large');
       return JSON.stringify({status:r.status,body:text});
+    } catch(e) {
+      // Do not serialize raw exception messages, URLs, or request bodies.
+      return JSON.stringify({transportError:e?.name==='AbortError'?'timeout':'network'});
     } finally {clearTimeout(timer);}
   };
   window.jealouswinStop = video => {
@@ -37,7 +64,10 @@
       const frame=()=>{if(active()){s.frames++;s.frameHandle=video.requestVideoFrameCallback(frame);}};
       s.frameHandle=video.requestVideoFrameCallback(frame);
     }
-    if(video.canPlayType('application/vnd.apple.mpegurl')){
+    // Prefer MSE HLS on secure-to-local HTTP when available, to avoid
+    // native media auto-upgrade and use the permission-aware network stack.
+    const mseAvailable=Boolean(window.Hls && window.Hls.isSupported());
+    if(video.canPlayType('application/vnd.apple.mpegurl') && !(localSpace(url.href) && mseAvailable)){
       video.crossOrigin='anonymous';video.src=url.href;
       video.onloadedmetadata=()=>{if(active())window.jealouswinPlay(video);};return;
     }

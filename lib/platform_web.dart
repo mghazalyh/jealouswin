@@ -22,9 +22,19 @@ class _Transport implements LanTransport {
         [uri.toString(),method,jsonEncode(headers),body]);
       final raw=await js.promiseToFuture<String>(promise);
       final d=jsonDecode(raw) as Map<String,dynamic>;
+      if(d['transportError']!=null){
+        final phase=uri.path=='/System/Info/Public'?'Gateway reachability':
+          uri.path=='/Users/AuthenticateByName'?'Login transport':'Gateway request';
+        final detail=d['transportError']=='timeout'?'Request timed out.':
+          html.window.location.protocol=='https:'&&uri.scheme=='http'
+            ?'Browser blocked or could not reach the HTTP LAN endpoint. Allow Local Network Access if prompted. If unsupported, this browser requires a trusted HTTPS gateway or the LAN-local entry point.'
+            :'Check LAN connectivity and the gateway address.';
+        throw ServerFault('$phase: $detail');
+      }
       return HttpResult(d['status'] as int,d['body'] as String);
-    } catch (_) {
-      throw const ServerFault('Cannot reach LAN server. Check Wi-Fi, address, local-network permission, CORS and HTTPS.');
+    } on ServerFault {rethrow;}
+    catch (_) {
+      throw const ServerFault('Browser transport bridge failed.');
     }
   }
 }
