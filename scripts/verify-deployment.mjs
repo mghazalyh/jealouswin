@@ -35,18 +35,24 @@ if (!subdomain?.endsWith('.pages.dev') ||
 }
 const production = `https://${subdomain}`;
 const digest = data => createHash('sha256').update(data).digest('hex');
-for (const base of [preview.origin, production]) {
-  for (const asset of ['/', '/flutter_bootstrap.js', '/main.dart.js', '/manifest.json', '/player.js', '/assets/jealouswin/rtc.js', '/hls.min.js', '/flutter_service_worker.js', '/rtc-test.html', '/rtc-test-ui.js', '/assets/jealouswin/rtc-test.js']) {
-    const response = await fetch(`${base}${asset}?release=${commit}`, {
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) throw new Error(`HTTPS check failed for ${base}${asset}: ${response.status}`);
-    const bytes = await response.arrayBuffer();
-    if (!bytes.byteLength) throw new Error(`Empty deployment asset: ${asset}`);
+const fixture=JSON.parse(readFileSync('build/web/jellop-test/v1/manifest.json','utf8'));
+if(fixture.release!==commit||fixture.synthetic!==true)throw new Error('Invalid synthetic fixture manifest');
+const assets=['/', '/flutter_bootstrap.js', '/main.dart.js', '/manifest.json', '/player.js', '/assets/jealouswin/rtc.js', '/hls.min.js', '/flutter_service_worker.js', '/rtc-test.html', '/rtc-test-ui.js', '/assets/jealouswin/rtc-test.js','/jellop-test/v1/manifest.json',...Object.keys(fixture.assets).map(name=>'/jellop-test/v1/'+name)];
+for(const base of [preview.origin,production]){
+  for(const asset of assets){
     const local=readFileSync('build/web'+(asset==='/'?'/index.html':asset));
-    if(digest(Buffer.from(bytes))!==digest(local))throw new Error(`Stale or mismatched deployment asset: ${base}${asset}`);
-    if(!/no-store/i.test(response.headers.get('cache-control')||''))throw new Error(`Missing no-store policy for ${base}${asset}`);
-    console.log(`Verified ${base}${asset}: HTTP ${response.status}`);
+    let verified=false;
+    // The canonical hostname may still be propagating after Wrangler succeeds.
+    for(let attempt=0;attempt<8;attempt++){
+      const response=await fetch(`${base}${asset}?release=${commit}&verify=${attempt}`,{signal:AbortSignal.timeout(30_000)});
+      const bytes=Buffer.from(await response.arrayBuffer());
+      if(response.ok&&bytes.length&&digest(bytes)===digest(local)&&/no-store/i.test(response.headers.get('cache-control')||'')){
+        verified=true;break;
+      }
+      if(attempt<7)await new Promise(resolve=>setTimeout(resolve,5000));
+    }
+    if(!verified)throw new Error(`Stale, unavailable or mismatched asset: ${base}${asset}`);
+    console.log(`Verified ${base}${asset}`);
   }
 }
 console.log(`Production deployment verified for commit ${commit}: ${production}`);

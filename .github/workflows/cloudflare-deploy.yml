@@ -108,6 +108,12 @@ jobs:
           node scripts/finalize-web-release.mjs
           node --check build/web/rtc-test-ui.js
           node --check build/web/assets/jealouswin/rtc-test.js
+      - name: Generate public synthetic Jellop compatibility fixture
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update && sudo apt-get install -y ffmpeg
+          fi
+          python3 scripts/build-jellop-fixture.py
       - name: Check deployment credentials
         id: credentials
         env:

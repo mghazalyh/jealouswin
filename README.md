@@ -17,3 +17,7 @@ Server policy is authoritative: all eligibility, ban, hiatus, success and failur
 Flutter 3.32.4 / Dart 3.8.1. The GitHub-hosted workflow uses the committed Flutter and Wrangler lockfiles, runs analysis and tests, builds the web app and bundles a checksum-verified HLS.js release, then deploys to Cloudflare Pages via Wrangler. It verifies the canonical production commit and HTTPS assets. The Cloudflare account ID and scoped Pages Write token are configured as GitHub Actions secrets. Do not commit credentials.
 
 All Jealouswin engineering uses GitHub and GitHub Actions only. No Fast Consumer, OpenCode, Macmini, SentinelX or self-hosted runner is used to build or deploy the web app. Gateway maintenance is a separate explicitly authorized operation.
+
+## Jellop interoperability fixture
+
+The existing Pages workflow generates a public, synthetic H.264/AAC HLS test pattern at `/jellop-test/v1/manifest.json`. Every media asset has a SHA-256 and bounded size in the manifest. Both preview and production deployment are verified. No IPTV credentials, private streams, API proxy or additional deployment secrets are published. Jellop's GitHub CI may retrieve these assets over HTTPS for isolated emulator testing.
