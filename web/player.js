@@ -30,6 +30,12 @@
     return new Request(url, options);
   };
   window.jealouswinRequest = async (url,method,headers,body) => {
+    if(window.jealouswinRtc?.canRoute(url)){
+      try{
+        const r=await window.jealouswinRtc.request(url,method,JSON.parse(headers),body,new URL(url).pathname==='/System/Info/Public');
+        return JSON.stringify({status:r.status,body:new TextDecoder().decode(r.bytes)});
+      }catch(e){return JSON.stringify({transportError:e?.code||'rtc-pairing-failed'});}
+    }
     const c = new AbortController(), timer=setTimeout(()=>c.abort(),25000);
     try {
       const r=await fetch(localRequest(url,{method,headers:JSON.parse(headers),body:body??undefined,
@@ -66,13 +72,15 @@
     }
     // Prefer MSE HLS on secure-to-local HTTP when available, to avoid
     // native media auto-upgrade and use the permission-aware network stack.
+    const viaRtc=Boolean(window.jealouswinRtc?.canRoute(url.href));
     const mseAvailable=Boolean(window.Hls && window.Hls.isSupported());
-    if(video.canPlayType('application/vnd.apple.mpegurl') && !(localSpace(url.href) && mseAvailable)){
+    if(video.canPlayType('application/vnd.apple.mpegurl') && !viaRtc && !(localSpace(url.href) && mseAvailable)){
       video.crossOrigin='anonymous';video.src=url.href;
       video.onloadedmetadata=()=>{if(active())window.jealouswinPlay(video);};return;
     }
-    if(!window.Hls||!window.Hls.isSupported()){fail('No supported HLS playback engine.');return;}
+    if(!window.Hls||!window.Hls.isSupported()){fail(viaRtc?'WebRTC playback needs HLS.js MediaSource support (iOS 17.1 or later).':'No supported HLS playback engine.');return;}
     const hls=new window.Hls({enableWorker:true,backBufferLength:30,maxBufferLength:30,
+      ...(viaRtc?{loader:window.jealouswinRtc.Loader,preferManagedMediaSource:true}:{}),
       xhrSetup:(xhr,target)=>{
         if(new URL(target,url).origin!==url.origin)throw new Error('Cross-origin media rejected');
         xhr.withCredentials=false;

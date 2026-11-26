@@ -25,7 +25,13 @@ class _Transport implements LanTransport {
       if(d['transportError']!=null){
         final phase=uri.path=='/System/Info/Public'?'Gateway reachability':
           uri.path=='/Users/AuthenticateByName'?'Login transport':'Gateway request';
-        final detail=d['transportError']=='timeout'?'Request timed out.':
+        final transportError=d['transportError'];
+        final detail=transportError=='rtc-popup-blocked'?'Allow pop-ups for Jealouswin, then press Connect again.':
+          transportError=='rtc-pairing-timeout'?'LAN pairing timed out. Approve the pairing tab and return to Jealouswin.':
+          transportError=='rtc-unsupported'?'This browser does not support WebRTC.':
+          transportError=='rtc-disconnected'?'WebRTC disconnected. Reconnect to the gateway.':
+          transportError is String&&transportError.startsWith('rtc-')?'WebRTC pairing or transport failed. Ensure you are on the same Wi-Fi and retry.':
+          transportError=='timeout'?'Request timed out.':
           html.window.location.protocol=='https:'&&uri.scheme=='http'
             ?'Browser blocked or could not reach the HTTP LAN endpoint. Allow Local Network Access if prompted. If unsupported, this browser requires a trusted HTTPS gateway or the LAN-local entry point.'
             :'Check LAN connectivity and the gateway address.';
