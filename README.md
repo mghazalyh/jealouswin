@@ -53,25 +53,28 @@ The Pages Direct Upload project `jealouswin` exists, with production branch
 The initial production deployment was uploaded and its HTTPS assets verified.
 No custom domain or paid service was enabled.
 
-The account ID Actions secret is configured. Automatic publishing still requires
-the dedicated `CLOUDFLARE_API_TOKEN` secret. The local Wrangler OAuth login is
-kept in encrypted storage backed by Windows Credential Manager; it is not used
-as a substitute for a permanent CI deployment token.
+Both repository Actions secrets, `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN`, are configured. GitHub Actions has successfully built,
+published, and verified the application using those secrets:
+[verified deployment run](https://github.com/mghazalyh/jealouswin/actions/runs/45831008238).
+Pushes to `main` deploy automatically; manual runs are also supported.
 
-Remaining credential setup:
+Credential maintenance:
 
-1. Create a dedicated token named `github-actions-cloudflare-deploy` with only
-   **Account / Cloudflare Pages / Edit**, scoped to the selected account.
-   Do not add DNS permissions, Workers administration, or a global API key.
-2. Set repository Actions secret `CLOUDFLARE_API_TOKEN`.
-   Never commit or print its value.
-3. Run the workflow. After uploading, it verifies that Cloudflare's production
-   deployment matches the workflow commit and checks the production and preview
-   HTTPS assets. It records the verified URLs in the run summary.
+Keep the deployment token limited to **Account / Cloudflare Pages / Edit**
+(Pages Write), scoped to the selected account. Do not add DNS permissions,
+Workers administration, or a global API key. Rotate it in Cloudflare and update
+the GitHub secret before it expires. Never commit or print its value.
+
+After uploading, the workflow verifies that Cloudflare's production deployment
+matches the workflow commit and checks the production and preview HTTPS assets.
+It records the verified URLs in the run summary. The local Wrangler OAuth login
+is kept in encrypted storage backed by Windows Credential Manager and is
+independent of the CI deployment token.
 
 Use Cloudflare's provided domain. Do not enable paid services or make unrelated
-DNS changes. Recheck current Pages and GitHub Actions free-tier limits before
-the first real deployment. Browser API tokens and private application credentials
+DNS changes. Monitor current Pages and GitHub Actions free-tier limits as the
+application grows. Browser API tokens and private application credentials
 must never be embedded in Flutter web output; that output is public client code.
 
 Official references: [Flutter web deployment](https://docs.flutter.dev/deployment/web),
