@@ -1,0 +1,112 @@
+name: Flutter web to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Check application readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f pubspec.yaml ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '### Waiting for Flutter application source' >> "$GITHUB_STEP_SUMMARY"
+            echo 'No deployment attempted. Add the app at the repository root, including pubspec.yaml, pubspec.lock, lib/, and web/.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for required in pubspec.lock lib/main.dart web/index.html; do
+            if [[ ! -f "$required" ]]; then
+              echo "::error file=$required::Required Flutter web application file is missing. Commit the application lockfile and web scaffold."
+              exit 1
+            fi
+          done
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Validate, build, and deploy
+    needs: source
+    if: needs.source.outputs.ready == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Pinned official Flutter stable revision; update deliberately with the app.
+      FLUTTER_REVISION: ae9b586f34a8443573f82ef57c3bf914a908cbf7
+      FLUTTER_VERSION: '3.50.1'
+      CLOUDFLARE_PROJECT: jealouswin
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Check deployment credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo '::error::Configure CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository Actions secrets before deploying.'
+            exit 1
+          fi
+      - name: Install pinned official Flutter SDK
+        run: |
+          set -euo pipefail
+          sdk="$RUNNER_TEMP/flutter"
+          git init "$sdk"
+          git -C "$sdk" remote add origin https://github.com/flutter/flutter.git
+          git -C "$sdk" fetch --depth 1 origin "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+          git -C "$sdk" checkout --detach "$FLUTTER_VERSION"
+          test "$(git -C "$sdk" rev-parse HEAD)" = "$FLUTTER_REVISION"
+          echo "$sdk/bin" >> "$GITHUB_PATH"
+          "$sdk/bin/flutter" config --no-analytics
+          "$sdk/bin/flutter" --version
+      - name: Install locked Flutter dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze application
+        run: flutter analyze --no-pub
+      - name: Run application tests when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -d test ]] && find test -name '*_test.dart' -print -quit | grep -q .; then
+            flutter test --no-pub
+          else
+            echo '::notice::No Dart unit or widget tests found; tests were not run.'
+            echo 'No Dart unit or widget tests found.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Build production web assets
+        run: |
+          set -euo pipefail
+          flutter build web --release --no-pub
+          test -s build/web/index.html
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+      - name: Install locked deployment tooling
+        run: npm ci --prefix .github/cloudflare --no-audit --no-fund
+      - name: Publish to existing Cloudflare Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          .github/cloudflare/node_modules/.bin/wrangler pages deploy build/web --project-name="$CLOUDFLARE_PROJECT" --branch=main --commit-hash="$GITHUB_SHA" --commit-dirty=false
+      - name: Report failure
+        if: failure()
+        run: echo '::error::Pipeline failed. Inspect the first failed step. A successful source check alone does not mean the app was deployed.'
